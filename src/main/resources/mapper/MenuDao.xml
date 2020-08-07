@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lch.rbac.dao.MenuDao">
+
+    <resultMap id="menuMap" type="Menu">
+        <id column="id" property="id"/>
+        <result column="menu_name" property="menuName"/>
+        <result column="description" property="description"/>
+        <result column="menu_type" property="menuType"/>
+        <result column="menu_address" property="menuAddress"/>
+        <result column="status" property="status"/>
+        <association property="parentMenu" column="m2id" javaType="Menu">
+            <id column="m2id" property="id"/>
+            <result column="m2menu_name" property="menuName"/>
+            <result column="m2description" property="description"/>
+            <result column="m2menu_type" property="menuType"/>
+            <result column="m2menu_address" property="menuAddress"/>
+            <result column="m2status" property="status"/>
+        </association>
+    </resultMap>
+
+    <select id="selectMenuById" resultMap="menuMap" parameterType="int">
+        select
+        m.id,m.menu_name,m.description,m.menu_type,m.menu_address,m.status,m.parent_id,
+        m2.id m2id,m2.menu_name m2menu_name,m2.description m2description,m2.menu_type m2menu_type,m2.menu_address m2menu_address,m2.status m2status,m2.parent_id m2parent_id
+        from tb_menu m
+        left join tb_menu m2
+        on m.parent_id = m2.id
+        where m.id=#{id}
+    </select>
+
+    <select id="selectMenuByMenuAddress" resultMap="menuMap">
+        select
+        m.id,m.menu_name,m.description,m.menu_type,m.menu_address,m.status,m.parent_id,
+        m2.id m2id,m2.menu_name m2menu_name,m2.description m2description,m2.menu_type m2menu_type,m2.menu_address m2menu_address,m2.status m2status,m2.parent_id m2parent_id
+        from tb_menu m
+        left join tb_menu m2
+        on m.parent_id = m2.id
+        where m.menu_address=#{menuAddress}
+    </select>
+
+    <select id="selectMenuListByMenuType" resultMap="menuMap" parameterType="int">
+        select
+        m.id,m.menu_name,m.description,m.menu_type,m.menu_address,m.status,m.parent_id,
+        m2.id m2id,m2.menu_name m2menu_name,m2.description m2description,m2.menu_type m2menu_type,m2.menu_address m2menu_address,m2.status m2status,m2.parent_id m2parent_id
+        from tb_menu m
+        left join tb_menu m2
+        on m.parent_id = m2.id
+        where m.menu_type=#{menuType}
+        order by m.id
+    </select>
+
+     <select id="selectCount" resultType="int">
+        select
+        count(1)
+        from tb_menu m
+        <where>
+            <if test="menuCondition.menuName!=null">
+                and m.menu_name = #{menuCondition.menuName}
+            </if>
+            <if test="menuCondition.menuType!=null">
+                and m.menu_type=#{menuCondition.menuType}
+            </if>
+            <if test="menuCondition.status!=null">
+                and m.status=#{menuCondition.status}
+            </if>
+        </where>
+        order by m.id
+    </select>
+
+    <select id="selectMenuList" resultMap="menuMap">
+        <!--分页规律总结：每页显示m条数据，查询第n页数据
+        select * from (select tt.*, ROWNUM AS rowno from 要分页的表 tt where ROWNUM<=m*n) table_alias where table_alias.rowno>m*n-m ;-->
+        SELECT *
+        FROM (SELECT tt.*, ROWNUM AS rowno
+              FROM ( select
+                      m.id,m.menu_name,m.description,m.menu_type,m.menu_address,m.status,m.parent_id,
+                      m2.id m2id,m2.menu_name m2menu_name,m2.description m2description,m2.menu_type m2menu_type,m2.menu_address m2menu_address,m2.status m2status,m2.parent_id m2parent_id
+                      from tb_menu m
+                      left join tb_menu m2
+                      on m.parent_id = m2.id and 1=1
+                      <where>
+                          <if test="menuCondition.menuName!=null">
+                              and m.menu_name = #{menuCondition.menuName}
+                          </if>
+                          <if test="menuCondition.menuType!=null">
+                              and m.menu_type=#{menuCondition.menuType}
+                          </if>
+                          <if test="menuCondition.status!=null">
+                              and m.status=#{menuCondition.status}
+                          </if>
+                      </where>
+                      order by m.menu_type,m.id) tt
+              WHERE ROWNUM &lt;= #{rowIndex}*#{pageSize}) table_alias
+        WHERE table_alias.rowno > #{pageSize}*#{rowIndex}-#{pageSize}
+    </select>
+
+    <select id="selectChildrenMenu" parameterType="int" resultMap="menuMap">
+        select
+        m.id,m.menu_name,m.description,m.menu_type,m.menu_address,m.status,m.parent_id,
+        m2.id m2id,m2.menu_name m2menu_name,m2.description m2description,m2.menu_type m2menu_type,m2.menu_address m2menu_address,m2.status m2status,m2.parent_id m2parent_id
+        from tb_menu m
+        left join tb_menu m2
+        on m.parent_id = m2.id
+        where m.parent_id=#{parentId}
+        order by m.id
+    </select>
+
+    <insert id="insertMenu" parameterType="Menu">
+        /*实现主键自增长*/
+        <selectKey keyProperty="id" order="BEFORE" resultType="Integer">
+            select nvl(max(id),0)+1 from tb_menu
+        </selectKey>
+        insert into tb_menu (id,menu_name,description,menu_type,menu_address,status,parent_id)
+        values (#{id},#{menuName},#{description},#{menuType},#{menuAddress,jdbcType=VARCHAR},#{status},#{parentMenu.id,jdbcType=DOUBLE})
+    </insert>
+    
+    <update id="updateMenu" parameterType="Menu">
+        update tb_menu set
+        menu_name=#{menuName},
+        description=#{description,jdbcType=VARCHAR},
+        menu_address=#{menuAddress,jdbcType=VARCHAR},
+        status=#{status},
+        parent_id=#{parentMenu.id,jdbcType=DOUBLE}
+        where id=#{id}
+    </update>
+
+    <delete id="deleteRoleMenuByMenuId" parameterType="int">
+        delete from tb_role_menu
+        where menu_id = #{menuId}
+    </delete>
+
+    <delete id="deleteMenuByMenuId" parameterType="int">
+        delete from tb_menu
+        where id = #{menuId}
+    </delete>
+
+</mapper>

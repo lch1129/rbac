@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lch.rbac.dao.RoleDao">
+
+    <resultMap type="Role" id="roleMap">
+        <id column="roid" property="id"/>
+        <result column="rorole_name" property="roleName"/>
+        <result column="rodescription" property="description"/>
+        <result column="rostart_date" property="startDate"/>
+        <result column="roend_date" property="endDate"/>
+        <result column="rostatus" property="status"/>
+        <collection property="menus" column="meid" ofType="Menu">
+            <id column="meid" property="id"/>
+            <result column="memenu_name" property="menuName"/>
+            <result column="medescription" property="description"/>
+            <result column="memenu_type" property="menuType"/>
+            <result column="memenu_address" property="menuAddress"/>
+            <result column="mestatus" property="status"/>
+        </collection>
+    </resultMap>
+
+    <select id="selectRoleById" parameterType="int" resultMap="roleMap">
+        select
+        ro.id roid,
+        ro.role_name rorole_name,
+        ro.description rodescription,
+        ro.start_date rostart_date,
+        ro.end_date roend_date,
+        ro.status rostatus,
+        me.id meid,
+        me.menu_name memenu_name,
+        me.description medescription,
+        me.menu_type memenu_type,
+        me.menu_address memenu_address,
+        me.status mestatus
+        from tb_role ro left join tb_role_menu rome on ro.id = rome.role_id
+        left join tb_menu me on rome.menu_id = me.id
+        where ro.id = #{id}
+    </select>
+
+    <select id="selectCount" resultType="int">
+        select
+        count(1)
+        from
+        tb_role ro
+        <where>
+            <if test="roleCondition.roleName!=null">
+                and ro.role_name = #{roleCondition.roleName}
+            </if>
+            <if test="roleCondition.status!=null">
+                and ro.status=#{roleCondition.status}
+            </if>
+        </where>
+        order by ro.id
+    </select>
+
+    <select id="selectRoleList" resultType="com.lch.rbac.entities.Role">
+        <!--分页规律总结：每页显示m条数据，查询第n页数据
+        select * from (select tt.*, ROWNUM AS rowno from 要分页的表 tt where ROWNUM<=m*n) table_alias where table_alias.rowno>m*n-m ;-->
+        SELECT *
+        FROM (SELECT tt.*, ROWNUM AS rowno
+              FROM ( select
+                      rownum r,ro.id,ro.role_name,ro.description,ro.start_date,ro.end_date,ro.status
+                      from
+                      tb_role ro
+                      <where>
+                        <if test="roleCondition.roleName!=null">
+                            and ro.role_name = #{roleCondition.roleName}
+                        </if>
+                        <if test="roleCondition.status!=null">
+                            and ro.status=#{roleCondition.status}
+                        </if>
+                      </where>
+                      order by ro.id) tt
+              WHERE ROWNUM &lt;= #{rowIndex}*#{pageSize}) table_alias
+        WHERE table_alias.rowno > #{pageSize}*#{rowIndex}-#{pageSize}
+    </select>
+
+    <select id="selectAllRoleList" resultType="Role">
+        select * from tb_role order by id
+    </select>
+
+    <insert id="insertRole" parameterType="Role">
+        /*实现主键自增长*/
+        <selectKey keyProperty="id" order="BEFORE" resultType="Integer">
+            select nvl(max(id),0)+1 from tb_role
+        </selectKey>
+        insert into tb_role (id,role_name,description,start_date,end_date,status)
+        values (#{id},#{roleName},#{description},to_date(to_char(#{startDate,jdbcType=DATE},'yyyy-mm-dd'),'yyyy-mm-dd'),to_date(to_char(#{endDate,jdbcType=DATE},'yyyy-mm-dd'),'yyyy-mm-dd'),#{status})
+    </insert>
+
+    <update id="modifyRole" parameterType="Role">
+        update tb_role set
+        role_name=#{roleName},
+        description=#{description},
+        start_date=to_date(to_char(#{startDate,jdbcType=DATE},'yyyy-mm-dd'),'yyyy-mm-dd'),
+        end_date=to_date(to_char(#{endDate,jdbcType=DATE},'yyyy-mm-dd'),'yyyy-mm-dd'),
+        status=#{status}
+        where id=#{id}
+    </update>
+
+    <insert id="batchInsertMenu" parameterType="java.util.List">
+        insert into tb_role_menu
+        (role_id, menu_id)
+        select t.* from
+        (
+        <foreach collection="list" item="item" separator="union all">
+            select
+            #{item.roleId},
+            #{item.menuId}
+            from dual
+        </foreach>
+        ) t
+    </insert>
+
+    <delete id="deleteRoleMenuByRoleId" parameterType="int">
+        delete from tb_role_menu
+        where role_id = #{roleId}
+    </delete>
+
+    <delete id="deleteUserRoleByRoleId" parameterType="int">
+        delete from tb_user_role
+        where role_id = #{roleId}
+    </delete>
+
+    <delete id="deleteRoleByRoleId" parameterType="int">
+        delete from tb_role
+        where id = #{roleId}
+    </delete>
+</mapper>
